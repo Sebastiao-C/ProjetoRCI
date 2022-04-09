@@ -253,6 +253,13 @@ void checkInput(int isThereChar){
             exitProgram(); // Gestão de memória
         case 'l':
             printf("hereInL\n");
+            char *str;
+            char buffer[100];
+            if((strcmp(sPort, "") != 0 ) && (strcmp(sPort, Port) != 0))
+            {
+                str = createPred(pKey, pIP, pPort);
+                Write(buffer, str, fdSuc); 
+            } 
             leave();
             fgetc(stdin);
             return;
@@ -315,19 +322,12 @@ int main(int argc, char **argv)
     strcpy(Port, argv[3]);
 
 
-    /*
-    if(strcmp(IP,"NULL") == 0){
-        //printf("it was.\n");
-        strcpy(IP, NULL);
-    }
-    */
-
-
     createServer(&hints, &res); // Provavelmente devia ser feito logo logo no principio
 
     inARing = 0;
 
     checkInput(0);
+    int alreadyRead = 0;
 
     // Saímos numa situação em que vamos passar só a modo servidor. Por isso, vamos fazer o TCP com accept para vários fds(?)
 
@@ -346,10 +346,10 @@ int main(int argc, char **argv)
         printf("No while.\n");
 
         showInfo();
-        printf("fd %d, fdSuc %d, fdPred %d\n", fd, fdSuc, fdPred);
         nready = select(maxfd + 1, &rfds, NULL, NULL, NULL);   // Ter a certeza que sempre que temos um novo fd verificamos se >max!!
 
-        addrlen = sizeof(addr);
+        alreadyRead = 0;
+        addrlen = sizeof(addr);     // ??
         if((x = FD_ISSET(0, &rfds)) != 0)
         {
             printf("here1\n");
@@ -363,25 +363,30 @@ int main(int argc, char **argv)
             printf("here2\n");
 
             if(Read(buffer, fdSuc) == 1){   // Nao pode ser bem isto porque no caso do nó estar sozinho ele tem de voltar a ligar a si!
-                sKey = 0;                   // Falta o pred!
-                strcpy(sIP, "");
-                strcpy(sPort, "");
+                                            // Já está corrigida esta questão de cima?
                 if(fdSuc != fdPred)
                 {
+                    sKey = 0;                   // Falta o pred!
+                    strcpy(sIP, "");
+                    strcpy(sPort, "");
                     printf("Im here somehow\n");
                     FD_CLR(fdSuc, &rfds);       // Inutil??
                 }
                 else
                 {
-                    pKey = 0;
-                    strcpy(pIP, "");
-                    strcpy(pPort, "");
+                    sKey = key;                   // Falta o pred!
+                    strcpy(sIP, IP);
+                    strcpy(sPort, Port);
+                    pKey = key;
+                    strcpy(pIP, IP);
+                    strcpy(pPort, Port);
                     fdPred = 0;
                 }
                 close(fdSuc);
                 fdSuc = 0;
                 continue;
             }
+            alreadyRead = 1;
 
         }
 
@@ -391,15 +396,24 @@ int main(int argc, char **argv)
 
             nleft = 100;
             ptr = buffer;
-            if(Read(buffer, fdPred) == 1){
-                close(fdPred);
-                pKey = 0;
-                strcpy(pIP, "");
-                strcpy(pPort, "");
-                fdPred = 0;
-                FD_CLR(fdPred, &rfds);
-                continue;
+            if(alreadyRead == 1)
+            {
             }
+            else
+            {
+                if(Read(buffer, fdPred) == 1){
+                    //str = createPred(pKey, pIP, pPort); // Verificar se a info tem formato válido!!
+                    //Write(buffer, str, fdSuc);
+                    close(fdPred);
+                    pKey = 0;
+                    strcpy(pIP, "");
+                    strcpy(pPort, "");
+                    fdPred = 0;
+                    FD_CLR(fdPred, &rfds);
+                    continue;
+                }
+            }
+
 
             printf("%s\n", buffer);
             sscanf(buffer, "%s %s %s %s", fst, scd, thd, frt);
