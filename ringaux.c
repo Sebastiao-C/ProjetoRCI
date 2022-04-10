@@ -26,6 +26,15 @@ void fsetHints(struct addrinfo *hints)
     hints->ai_flags = AI_PASSIVE;
 }
 
+void usetHints(struct addrinfo *hints)
+{
+    memset(&hints,0,sizeof hints);
+    hints->ai_family=AF_INET;//IPv4
+    hints->ai_socktype=SOCK_DGRAM;//UDP socket
+    hints->ai_flags=AI_PASSIVE;
+}
+
+
 void printUI()
 {
     printf("Insira a letra correspondente à ação que quer tomar.\n");
@@ -36,13 +45,23 @@ void printUI()
     printf("x: Fecho da aplicação.\n");
 }
 
-int createSocket()
+int createtSocket()
 {
     int fd;
     if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
         exit(1);
 
     printf("createsocket fd: %d\n", fd);
+    return fd;
+}
+
+int createuSocket()
+{
+    int fd;
+    if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+        exit(1);
+
+    printf("createsocket UDP fd: %d\n", fd);
     return fd;
 }
 
@@ -101,6 +120,44 @@ int Read(char *buffer, int fd)
     return 0;
 }
 
+int ReadU(char *buffer, int fdUDP)
+{
+    char *ptr;
+    ssize_t nleft, nread;
+    ptr = buffer;
+    nleft = 100;
+    struct sockaddr addr;
+    socklen_t addrlen;
+    
+    addrlen = sizeof(addr);     // ??
+
+
+    while(nleft>0){
+        nread = recvfrom(fdUDP, ptr, 100, 0, &addr, &addrlen);
+        printf("nread = %ld\n", nread);
+
+        if(nread==-1)
+        {
+            printf("couldn't read\n");
+            exit(1);
+        }
+        
+        else if(nread==0){
+            /*
+            if(nleft == 100){
+                return 1;
+            } 
+            */
+            break;
+        }
+        nleft-=nread;
+
+        ptr+=nread;
+        if((*(ptr-1)) == '\n') break;
+    }
+    return 0;
+}
+
 void Write(char *buffer, char *str, int fd1)
 {
     char *ptr;
@@ -125,6 +182,11 @@ void Write(char *buffer, char *str, int fd1)
         ptr += nwritten;
 
     }
+}
+
+int WriteU(char *buffer, char *str, int fdUDP)
+{
+
 }
 
 char *createPred(int pkey, char *pIP, char *pPort)

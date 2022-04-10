@@ -31,6 +31,8 @@ int fdUDP;
 int inARing;
 int maxfd;
 int currentN;
+int findCameFromUser;
+
 
 void setToZero()
 {
@@ -112,7 +114,7 @@ int pEntry(int predkey, char *predIP, char *predPort){
 
     // "Modo cliente"   (Precisamos de avisar o nosso novo predecessor que somos o seu novo sucessor)
 
-    fd1 = createSocket(); // if error, exits
+    fd1 = createtSocket(); // if error, exits
 
     setHints(&hints);
     //hints.ai_flags = AI_PASSIVE;
@@ -160,12 +162,13 @@ int pEntry(int predkey, char *predIP, char *predPort){
 int createServer(struct addrinfo *hints, struct addrinfo **res){     //??
     int errcode;
     
-    fd = createSocket(); // if error, exits
+    fd = createtSocket(); // if error, exits
     maxfd = fd;
     printf("fd: %d\n", fd);
     fsetHints(hints);
 
-    if(!strcmp(IP, "NULL")){
+    if(!strcmp(IP, "NULL"))
+    {
         if ((errcode = getaddrinfo(NULL, Port, hints, res)) != 0){ /*error*/
             printf("Não consegui receber addrinfo.\n");
             exit(1);
@@ -185,6 +188,28 @@ int createServer(struct addrinfo *hints, struct addrinfo **res){     //??
         printf("Não consegui fazer listen.\n");
         exit(1);
     }
+
+    fdUDP = createuSocket();
+    if(fdUDP > maxfd) maxfd = fdUDP;
+    printf("%d\n", fdUDP);
+    usetHints(hints);
+
+    if(!strcmp(IP, "NULL"))
+    {
+        if ((errcode = getaddrinfo(NULL, Port, hints, res)) != 0)
+        { /*error*/
+            printf("Não consegui receber addrinfo.\n");
+            exit(1);
+        }
+    }
+    else if ((errcode = getaddrinfo(IP, Port, hints, res)) != 0){ /*error*/
+        printf("Não consegui receber addrinfo.\n");
+        exit(1);
+    }
+    if(bind(fdUDP,(*res)->ai_addr, (*res)->ai_addrlen)==-1)/*error*/exit(1);
+
+    
+
     return fd;
 }
 
@@ -301,6 +326,8 @@ int main(int argc, char **argv)
     int ns[100];
     currentN = 0;
     int i;
+    findCameFromUser = 1;
+
 
     for(i = 0; i < 100; i++){
         ns[i] = 0;
@@ -352,6 +379,7 @@ int main(int argc, char **argv)
 
     checkInput(0);
     int alreadyRead = 0;
+    
 
     // Saímos numa situação em que vamos passar só a modo servidor. Por isso, vamos fazer o TCP com accept para vários fds(?)
 
@@ -373,7 +401,7 @@ int main(int argc, char **argv)
         nready = select(maxfd + 1, &rfds, NULL, NULL, NULL);   // Ter a certeza que sempre que temos um novo fd verificamos se >max!!
 
         alreadyRead = 0;
-        addrlen = sizeof(addr);     // ??
+        addrlen = sizeof(addr);   
         if((x = FD_ISSET(0, &rfds)) != 0)
         {
             printf("here1\n");
@@ -458,7 +486,7 @@ int main(int argc, char **argv)
                 // Verificar formatos!!!
                 //str = createSelf(key, IP, Port);
                 sscanf(buffer, "%s %s %s %s", fst, scd, thd, frt);
-                fdPred = createSocket();
+                fdPred = createtSocket();
                 setHints(&hints); // Sem flags?...
                 if(strcmp(thd,"NULL") == 0){
                     // fazer só o if seguinte aqui dentro com um NULL em vez de mudar a variavel? tipo como está agora aqui
@@ -528,6 +556,61 @@ int main(int argc, char **argv)
         if ((x = FD_ISSET(fdUDP, &rfds)) != 0)
         {
             printf("here4\n");
+
+            nleft = 100;
+            ptr = buffer;
+            if(alreadyRead == 1)
+            {
+
+            }
+            else
+            {
+                if(Read(buffer, fdPred) == 1){
+                    //str = createPred(pKey, pIP, pPort); // Verificar se a info tem formato válido!!
+                    //Write(buffer, str, fdSuc);
+                    close(fdPred);
+                    pKey = 0;
+                    strcpy(pIP, "");
+                    strcpy(pPort, "");
+                    fdPred = 0;
+                    FD_CLR(fdPred, &rfds);
+                    continue;
+                }
+            }
+
+
+            printf("%s\n", buffer);
+            sscanf(buffer, "%s", fst);
+
+            if(!strcmp(fst, "FND"))      // É para tratar disto, que está um cocó!!  
+            {
+                sscanf(buffer, "%s %s %s %s %s %s", fst, scd, thd, frt, fft, sxt);
+                if(((atoi(scd) >= key) && (atoi(scd) <= sKey)) || (sKey < key) && ((atoi(scd) > key) || (atoi(scd) < sKey)))
+                {
+                    printf("It's mine!\n");
+                    strcpy(fst, "RSP");
+                    strcpy(scd, frt);
+                    sprintf(str, "%s %s %s %d %s %s\n", fst, scd, thd, key, IP, Port);
+                    Write(buffer, str, fdSuc);
+                }
+                else{
+                    strcpy(str, buffer);
+                    Write(buffer, str, fdSuc);
+                }
+
+            }
+            else if(!strcmp(fst, "RSP"))
+            {
+                sscanf(buffer, "%s %s %s %s %s %s", fst, scd, thd, frt, fft, sxt);
+                if(atoi(scd) == key)
+                {
+                    printf("It belongs to: %s, %s, %s\n", frt, fft, sxt);
+                }
+                else{
+                    strcpy(str, buffer);
+                    Write(buffer, str, fdSuc);
+                }
+            }
 
             FD_CLR(fdUDP, &rfds);
         }
