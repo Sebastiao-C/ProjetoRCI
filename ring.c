@@ -31,7 +31,7 @@ int fdUDP;
 int inARing;
 int maxfd;
 int currentN;
-int findCameFromUser;
+int fndCameFromUser;
 
 
 void setToZero()
@@ -323,15 +323,17 @@ int main(int argc, char **argv)
     int cont = 1;       // inutil?
     int numFds = 0;     // inutil?
     maxfd = 0;
-    int ns[100];
+    char finds[2][100][20];
+    //int nCameFromUser[100];
     currentN = 0;
     int i;
-    findCameFromUser = 1;
+    //fndCameFromUser = 1;
 
-
+    /*
     for(i = 0; i < 100; i++){
-        ns[i] = 0;
+        nCameFromUser[i] = 0;
     }
+    */
 
     fd_set rfds;
 
@@ -438,7 +440,7 @@ int main(int argc, char **argv)
                 fdSuc = 0;
                 continue;
             }
-            alreadyRead = 1;
+            alreadyRead = 1;        // Porque fdPred e fdSuc podem ser iguais!
 
         }
 
@@ -541,7 +543,19 @@ int main(int argc, char **argv)
                 sscanf(buffer, "%s %s %s %s %s %s", fst, scd, thd, frt, fft, sxt);
                 if(atoi(scd) == key)
                 {
-                    printf("It belongs to: %s, %s, %s\n", frt, fft, sxt);
+                    if(strcmp(thd, "1") == 0){
+                        printf("It belongs to: %s, %s, %s\n", frt, fft, sxt);       
+                    }
+                    else{
+                        int n;
+                        n = atoi(thd);
+                        strcpy(fst, "EPRED");
+                        strcpy(scd, frt);
+                        strcpy(thd, fft);
+                        strcpy(frt, sxt);
+                        sprintf(str, "%s %s %s %s", fst, scd, thd, frt);
+                        //WriteU(buffer, str, finds[0][n], finds[1][n]);
+                    }
                 }
                 else{
                     strcpy(str, buffer);
@@ -559,25 +573,8 @@ int main(int argc, char **argv)
 
             nleft = 100;
             ptr = buffer;
-            if(alreadyRead == 1)
-            {
 
-            }
-            else
-            {
-                if(Read(buffer, fdPred) == 1){
-                    //str = createPred(pKey, pIP, pPort); // Verificar se a info tem formato válido!!
-                    //Write(buffer, str, fdSuc);
-                    close(fdPred);
-                    pKey = 0;
-                    strcpy(pIP, "");
-                    strcpy(pPort, "");
-                    fdPred = 0;
-                    FD_CLR(fdPred, &rfds);
-                    continue;
-                }
-            }
-
+            ReadU(buffer, fdUDP);
 
             printf("%s\n", buffer);
             sscanf(buffer, "%s", fst);
@@ -604,7 +601,7 @@ int main(int argc, char **argv)
                 sscanf(buffer, "%s %s %s %s %s %s", fst, scd, thd, frt, fft, sxt);
                 if(atoi(scd) == key)
                 {
-                    printf("It belongs to: %s, %s, %s\n", frt, fft, sxt);
+                    printf("It belongs to: %s, %s, %s\n", frt, fft, sxt);       // Mudar
                 }
                 else{
                     strcpy(str, buffer);

@@ -12,5 +12,6 @@ char *createPred(int pkey, char *pIP, char *pPort);
 int Read(char *buffer, int fd);
 int ReadU(char *buffer, int fdUDP);
 void Write(char *buffer, char *str, int fd1);
+int findMinFree(char ***senderArray, int arraySize);
 
 #endif

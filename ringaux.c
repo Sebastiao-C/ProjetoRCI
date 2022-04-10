@@ -215,3 +215,14 @@ char *createPred(int pkey, char *pIP, char *pPort)
     free(straux);
     return str;
 }
+
+int findMinFree(char ***senderArray, int arraySize)
+{
+    int i;
+    for(i = 0; i < arraySize; i++){
+        if(strcmp(senderArray[0][i], "") == 0){
+            return i;
+        }
+    }
+    return -1;
+}
