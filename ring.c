@@ -30,6 +30,7 @@ int fdUDP;
 
 int inARing;
 int maxfd;
+int currentN;
 
 void setToZero()
 {
@@ -95,7 +96,7 @@ int createRing()
     return 0;
 }
 
-int pEntry(int key, char *predIP, char *predPort){
+int pEntry(int predkey, char *predIP, char *predPort){
 
     struct addrinfo hints, *res;
     int fd1, newfd, errcode;
@@ -147,6 +148,7 @@ int pEntry(int key, char *predIP, char *predPort){
 
     fdPred = fd1;
     if(fdPred > maxfd) maxfd = fdPred;
+    pKey = predkey;
     strcpy(pIP, predIP);
     strcpy(pPort, predPort);
 
@@ -202,10 +204,13 @@ void exitProgram()
 }
 
 
-void checkInput(int isThereChar){
+void checkInput(int isThereChar)
+{
     char input;
     int cont = 1;
-    char params[100], predip[100], predport[100];
+    int predkey = 0;
+    char params[100], predip[100], predport[100], buffer[200];
+    char *str;
     while (cont)
     {
         if(isThereChar)
@@ -238,23 +243,26 @@ void checkInput(int isThereChar){
 
         case 'p':
             fgets(params, 100, stdin);
-            sscanf(params, "%d %s %s", &key, predip, predport);
-            printf("key: %d\n", key);
+            sscanf(params, "%d %s %s", &predkey, predip, predport);
+            printf("predkey: %d\n", predkey);
             printf("predIP: %s\n", predip);
             printf("predport: %s\n", predport);
             
-            pEntry(key, predip, predport);
+            pEntry(predkey, predip, predport);
 
             inARing = 1;
             return;
             break;      //tirar
 
         case 'x':
+            if((strcmp(sPort, "") != 0 ) && (strcmp(sPort, Port) != 0))
+            {
+                str = createPred(pKey, pIP, pPort);
+                Write(buffer, str, fdSuc); 
+            } 
             exitProgram(); // Gestão de memória
         case 'l':
             printf("hereInL\n");
-            char *str;
-            char buffer[100];
             if((strcmp(sPort, "") != 0 ) && (strcmp(sPort, Port) != 0))
             {
                 str = createPred(pKey, pIP, pPort);
@@ -264,6 +272,15 @@ void checkInput(int isThereChar){
             fgetc(stdin);
             return;
             break;      //tirar
+        case 'f':
+            fgets(params, 100, stdin);
+            int findk;
+            sscanf(params, "%d", &findk);
+            printf("findk: %d\n", findk);
+            sprintf(params, "%s %d %d %d %s %s\n", "FND", findk, 1, key, IP, Port);
+            Write(buffer, params, fdSuc);
+            return;
+            break;
         default:
             printf("Não é um input válido.");
             break;
@@ -281,6 +298,13 @@ int main(int argc, char **argv)
     int cont = 1;       // inutil?
     int numFds = 0;     // inutil?
     maxfd = 0;
+    int ns[100];
+    currentN = 0;
+    int i;
+
+    for(i = 0; i < 100; i++){
+        ns[i] = 0;
+    }
 
     fd_set rfds;
 
@@ -300,10 +324,10 @@ int main(int argc, char **argv)
 
     //char params[100], predip[100], predport[100];
 
-    int nready, i;
+    int nready;
     int auxfd;
     int x;
-    char fst[20], scd[20], thd[20], frt[20];
+    char fst[20], scd[20], thd[20], frt[20], fft[20], sxt[20];
     char *str;
     struct timeval t;
 
@@ -398,6 +422,7 @@ int main(int argc, char **argv)
             ptr = buffer;
             if(alreadyRead == 1)
             {
+
             }
             else
             {
@@ -416,11 +441,12 @@ int main(int argc, char **argv)
 
 
             printf("%s\n", buffer);
-            sscanf(buffer, "%s %s %s %s", fst, scd, thd, frt);
-            printf("%s, %s, %s, %s\n", fst, scd, thd, frt);
+            sscanf(buffer, "%s", fst);
+            //printf("%s, %s, %s, %s\n", fst, scd, thd, frt);
 
             if(!strcmp(fst, "SELF"))        // Para o caso em que ainda temos só 2 nós e o outro quer informar-nos disso
             {
+                sscanf(buffer, "%s %s %s %s", fst, scd, thd, frt);
                 sKey = atoi(scd);
                 strcpy(sIP, thd);
                 strcpy(sPort, frt);
@@ -431,6 +457,7 @@ int main(int argc, char **argv)
             {
                 // Verificar formatos!!!
                 //str = createSelf(key, IP, Port);
+                sscanf(buffer, "%s %s %s %s", fst, scd, thd, frt);
                 fdPred = createSocket();
                 setHints(&hints); // Sem flags?...
                 if(strcmp(thd,"NULL") == 0){
@@ -464,7 +491,36 @@ int main(int argc, char **argv)
 
                 if(fdPred > maxfd) maxfd = fdPred; // Não faz sentido
             }
-            
+            if(!strcmp(fst, "FND"))        
+            {
+                sscanf(buffer, "%s %s %s %s %s %s", fst, scd, thd, frt, fft, sxt);
+                if(((atoi(scd) >= key) && (atoi(scd) <= sKey)) || (sKey < key) && ((atoi(scd) > key) || (atoi(scd) < sKey)))
+                {
+                    printf("It's mine!\n");
+                    strcpy(fst, "RSP");
+                    strcpy(scd, frt);
+                    sprintf(str, "%s %s %s %d %s %s\n", fst, scd, thd, key, IP, Port);
+                    Write(buffer, str, fdSuc);
+                }
+                else{
+                    strcpy(str, buffer);
+                    Write(buffer, str, fdSuc);
+                }
+
+            }
+            else if(!strcmp(fst, "RSP"))
+            {
+                sscanf(buffer, "%s %s %s %s %s %s", fst, scd, thd, frt, fft, sxt);
+                if(atoi(scd) == key)
+                {
+                    printf("It belongs to: %s, %s, %s\n", frt, fft, sxt);
+                }
+                else{
+                    strcpy(str, buffer);
+                    Write(buffer, str, fdSuc);
+                }
+            }
+
 
             FD_CLR(fdPred, &rfds);
         }
