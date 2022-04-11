@@ -169,6 +169,8 @@ int createServer(struct addrinfo *hints, struct addrinfo **res){     //??
 
     if(!strcmp(IP, "NULL"))
     {
+        printf("Im here in create server TCP NULL case\n");
+
         if ((errcode = getaddrinfo(NULL, Port, hints, res)) != 0){ /*error*/
             printf("Não consegui receber addrinfo.\n");
             exit(1);
@@ -196,6 +198,7 @@ int createServer(struct addrinfo *hints, struct addrinfo **res){     //??
 
     if(!strcmp(IP, "NULL"))
     {
+        printf("Im here in create server UDP NULL case\n");
         if ((errcode = getaddrinfo(NULL, Port, hints, res)) != 0)
         { /*error*/
             printf("Não consegui receber addrinfo.\n");
@@ -203,9 +206,10 @@ int createServer(struct addrinfo *hints, struct addrinfo **res){     //??
         }
     }
     else if ((errcode = getaddrinfo(IP, Port, hints, res)) != 0){ /*error*/
-        printf("Não consegui receber addrinfo.\n");
-        exit(1);
-    }
+            printf("Não consegui receber addrinfo.\n");
+            exit(1);
+    } 
+    
     if(bind(fdUDP,(*res)->ai_addr, (*res)->ai_addrlen)==-1)/*error*/exit(1);
 
     
@@ -306,6 +310,37 @@ void checkInput(int isThereChar)
             Write(buffer, params, fdSuc);
             return;
             break;
+        case 'q':
+            fgets(params, 100, stdin);
+            int efindk;
+            int auxFDUDP;
+            char auxIP[20], auxPort[20];
+            struct addrinfo hints, *res;
+            int errcode;
+            char auxstr[100];
+            sscanf(params, "%d %s %s", &efindk, auxIP, auxPort);
+            printf("efindk: %d %s %s\n", efindk, auxIP, auxPort);
+            sprintf(auxstr, "EFND %d", efindk);
+            printf("%s\n", auxstr);
+            //auxFDUDP = createuSocket();
+            ucsetHints(&hints);
+
+            if(!strcmp(auxIP, "NULL"))
+            {
+                printf("Im here in create server UDP NULL case\n");
+                if ((errcode = getaddrinfo(NULL, auxPort, &hints, &res)) != 0)
+                { /*error*/
+                    printf("Não consegui receber addrinfo.\n");
+                    exit(1);
+                }
+            }
+            else if ((errcode = getaddrinfo(auxIP, auxPort, &hints, &res)) != 0){ /*error*/
+                    printf("Não consegui receber addrinfo.\n");
+                    exit(1);
+            } 
+            WriteU(buffer, auxstr, fdUDP, (res)->ai_addr, (res)->ai_addrlen);
+            return;
+            break;
         default:
             printf("Não é um input válido.");
             break;
@@ -323,17 +358,21 @@ int main(int argc, char **argv)
     int cont = 1;       // inutil?
     int numFds = 0;     // inutil?
     maxfd = 0;
-    char finds[2][100][20];
+    // char finds[2][100][20];
+    struct sockaddr *addresses[99];
+    socklen_t lens[99];
     //int nCameFromUser[100];
     currentN = 0;
     int i;
     //fndCameFromUser = 1;
+    char auxstr[100];
 
-    /*
-    for(i = 0; i < 100; i++){
-        nCameFromUser[i] = 0;
+    
+    for(i = 0; i < 99; i++){
+        addresses[i] = NULL;
+        lens[i] = 0;
     }
-    */
+    
 
     fd_set rfds;
 
@@ -529,12 +568,12 @@ int main(int argc, char **argv)
                     printf("It's mine!\n");
                     strcpy(fst, "RSP");
                     strcpy(scd, frt);
-                    sprintf(str, "%s %s %s %d %s %s\n", fst, scd, thd, key, IP, Port);
-                    Write(buffer, str, fdSuc);
+                    sprintf(auxstr, "%s %s %s %d %s %s\n", fst, scd, thd, key, IP, Port);
+                    Write(buffer, auxstr, fdSuc);
                 }
                 else{
-                    strcpy(str, buffer);
-                    Write(buffer, str, fdSuc);
+                    strcpy(auxstr, buffer);
+                    Write(buffer, auxstr, fdSuc);
                 }
 
             }
@@ -553,13 +592,16 @@ int main(int argc, char **argv)
                         strcpy(scd, frt);
                         strcpy(thd, fft);
                         strcpy(frt, sxt);
-                        sprintf(str, "%s %s %s %s", fst, scd, thd, frt);
-                        //WriteU(buffer, str, finds[0][n], finds[1][n]);
+                        sprintf(auxstr, "%s %s %s %s", fst, scd, thd, frt);
+                        printf("%s\n", auxstr);
+                        WriteU(buffer, auxstr, fdUDP, addresses[n-1], lens[n-1]);
+                        addresses[n-1] = NULL;
+                        lens[n-1] = 0;
                     }
                 }
                 else{
-                    strcpy(str, buffer);
-                    Write(buffer, str, fdSuc);
+                    strcpy(auxstr, buffer);
+                    Write(buffer, auxstr, fdSuc);
                 }
             }
 
@@ -574,7 +616,7 @@ int main(int argc, char **argv)
             nleft = 100;
             ptr = buffer;
 
-            ReadU(buffer, fdUDP);
+            ReadU(buffer, fdUDP, &addr, &addrlen);
 
             printf("%s\n", buffer);
             sscanf(buffer, "%s", fst);
@@ -587,12 +629,12 @@ int main(int argc, char **argv)
                     printf("It's mine!\n");
                     strcpy(fst, "RSP");
                     strcpy(scd, frt);
-                    sprintf(str, "%s %s %s %d %s %s\n", fst, scd, thd, key, IP, Port);
-                    Write(buffer, str, fdSuc);
+                    sprintf(auxstr, "%s %s %s %d %s %s\n", fst, scd, thd, key, IP, Port);
+                    Write(buffer, auxstr, fdSuc);
                 }
                 else{
-                    strcpy(str, buffer);
-                    Write(buffer, str, fdSuc);
+                    strcpy(auxstr, buffer);
+                    Write(buffer, auxstr, fdSuc);
                 }
 
             }
@@ -601,12 +643,48 @@ int main(int argc, char **argv)
                 sscanf(buffer, "%s %s %s %s %s %s", fst, scd, thd, frt, fft, sxt);
                 if(atoi(scd) == key)
                 {
-                    printf("It belongs to: %s, %s, %s\n", frt, fft, sxt);       // Mudar
+                    if(strcmp(thd, "1") == 0){
+                        printf("It belongs to: %s, %s, %s\n", frt, fft, sxt);       
+                    }
+                    else{
+                        int n;
+                        n = atoi(thd);
+                        strcpy(fst, "EPRED");
+                        strcpy(scd, frt);
+                        strcpy(thd, fft);
+                        strcpy(frt, sxt);
+                        sprintf(auxstr, "%s %s %s %s", fst, scd, thd, frt);
+                        WriteU(buffer, auxstr, fdUDP, addresses[n-1], lens[n-1]); 
+                        addresses[n-1] = NULL;
+                        lens[n-1] = 0;
+                        //WriteU(buffer, str, finds[0][n], finds[1][n]);
+                    }
                 }
                 else{
-                    strcpy(str, buffer);
-                    Write(buffer, str, fdSuc);
+                    strcpy(auxstr, buffer);
+                    Write(buffer, auxstr, fdSuc);
                 }
+            }
+            if(!strcmp(fst, "EFND"))      // É para tratar disto, que está um cocó!!  
+            {
+                sscanf(buffer, "%s %s", fst, scd);
+                if(((atoi(scd) >= key) && (atoi(scd) <= sKey)) || (sKey < key) && ((atoi(scd) > key) || (atoi(scd) < sKey)))
+                {
+                    printf("It's mine!\n");
+                    strcpy(fst, "EPRED");
+                    sprintf(auxstr, "%s %d %s %s", fst, key, IP, Port);
+                    WriteU(buffer, auxstr, fdUDP, &addr, addrlen);
+                }
+                else{
+                    int a;
+                    a = findMinFree(addresses, 99);
+                    a++;
+                    sprintf(auxstr, "FND %s %d %d %s %s\n", scd, a, key, IP, Port);
+                    addresses[a-1] = &addr;
+                    lens[a-1] = addrlen;
+                    Write(buffer, auxstr, fdSuc);
+                }
+
             }
 
             FD_CLR(fdUDP, &rfds);

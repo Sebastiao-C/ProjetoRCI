@@ -13,22 +13,29 @@
 
 void setHints(struct addrinfo *hints)
 {
-    memset(hints, 0, sizeof *hints);
+    memset(hints, 0, sizeof(*hints));
     hints->ai_family = AF_INET;       // IPv4
     hints->ai_socktype = SOCK_STREAM; // TCP socket
 }
 
 void fsetHints(struct addrinfo *hints)
 {
-    memset(hints, 0, sizeof *hints);
+    memset(hints, 0, sizeof(*hints));
     hints->ai_family = AF_INET;       // IPv4
     hints->ai_socktype = SOCK_STREAM; // TCP socket
     hints->ai_flags = AI_PASSIVE;
 }
 
+void ucsetHints(struct addrinfo *hints)
+{
+    memset(hints,0,sizeof(*hints));
+    hints->ai_family=AF_INET;//IPv4
+    hints->ai_socktype=SOCK_DGRAM;//UDP socket
+}
+
 void usetHints(struct addrinfo *hints)
 {
-    memset(&hints,0,sizeof hints);
+    memset(hints,0,sizeof(*hints));
     hints->ai_family=AF_INET;//IPv4
     hints->ai_socktype=SOCK_DGRAM;//UDP socket
     hints->ai_flags=AI_PASSIVE;
@@ -120,41 +127,42 @@ int Read(char *buffer, int fd)
     return 0;
 }
 
-int ReadU(char *buffer, int fdUDP)
+int ReadU(char *buffer, int fdUDP, struct sockaddr *addr, socklen_t *addrlen)
 {
     char *ptr;
     ssize_t nleft, nread;
     ptr = buffer;
     nleft = 100;
-    struct sockaddr addr;
-    socklen_t addrlen;
-    
-    addrlen = sizeof(addr);     // ??
+    //struct sockaddr myaddr = *addr;
+    //socklen_t myaddrlen = *addrlen;
 
+    //addrlen = sizeof(addr);     // ??
 
-    while(nleft>0){
-        nread = recvfrom(fdUDP, ptr, 100, 0, &addr, &addrlen);
+    //while(nleft>0){
+        nread = recvfrom(fdUDP, ptr, 100, 0, addr, addrlen);
         printf("nread = %ld\n", nread);
+        ptr[nread] = '\0';
+        printf("What was read: %s\n", ptr);
 
-        if(nread==-1)
+    /*    if(nread==-1)
         {
             printf("couldn't read\n");
             exit(1);
         }
         
         else if(nread==0){
-            /*
+            
             if(nleft == 100){
                 return 1;
             } 
-            */
+            
             break;
         }
         nleft-=nread;
 
         ptr+=nread;
         if((*(ptr-1)) == '\n') break;
-    }
+    }*/
     return 0;
 }
 
@@ -168,10 +176,10 @@ void Write(char *buffer, char *str, int fd1)
 
     nbytes = strlen(ptr);
     //printf("strlen is %d\n", nbytes);
-    ptr[nbytes] = '\0';     // Em princípio não faz nada
+    ptr[nbytes] = '\0';    //  Em princípio não faz nada
 
     nleft = nbytes;
-    while (nleft > 0)
+    while (nleft > 0)           // Este nao devia ter loop se o read nao tem
     {
         nwritten = write(fd1, ptr, nleft);
         if (nwritten <= 0) /*error*/
@@ -184,9 +192,32 @@ void Write(char *buffer, char *str, int fd1)
     }
 }
 
-int WriteU(char *buffer, char *str, int fdUDP)
+int WriteU(char buffer[100], char str[100], int fdUDP, struct sockaddr *addrinfo, socklen_t addrlen)      // mudar estes headers para nao terem 2 pointers (é inutil?)
 {
+    char *ptr;
+    ssize_t nbytes, nleft, nwritten, nread;
 
+    ptr = strcpy(buffer, str);
+        printf("yup3\n");
+
+    nbytes = strlen(ptr);
+    //printf("strlen is %d\n", nbytes);
+    //ptr[nbytes] = '\0';     // TIREI ISTO PARA VER SE OS UDPS PASSAM A FUNCIONAR
+
+    nleft = nbytes;
+    while (nleft > 0)
+    {
+        printf("Here in WriteU's while\n");
+        nwritten = sendto(fdUDP, ptr, nleft, 0, addrinfo, addrlen);
+
+        if (nwritten <= 0) /*error*/
+            exit(1);
+        nleft -= nwritten;
+        //printf("nleft is %d\n", nleft);
+
+        ptr += nwritten;
+
+    }
 }
 
 char *createPred(int pkey, char *pIP, char *pPort)
@@ -216,11 +247,11 @@ char *createPred(int pkey, char *pIP, char *pPort)
     return str;
 }
 
-int findMinFree(char ***senderArray, int arraySize)
+int findMinFree(struct sockaddr**senderArray, int arraySize)
 {
     int i;
-    for(i = 0; i < arraySize; i++){
-        if(strcmp(senderArray[0][i], "") == 0){
+    for(i = 1; i < arraySize; i++){
+        if(senderArray[i] == NULL){
             return i;
         }
     }
