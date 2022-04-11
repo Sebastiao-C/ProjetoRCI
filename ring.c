@@ -28,6 +28,13 @@ int fdSuc;
 int fdPred;
 int fdUDP;
 
+int cKey;
+char cIP[100];
+char cPort[100];
+struct sockaddr *caddr;
+socklen_t clen;
+
+
 int inARing;
 int maxfd;
 int currentN;
@@ -48,6 +55,13 @@ void setToZero()
     pKey = 0;
     strcpy(pIP, "");
     strcpy(pPort, "");
+
+    cKey = 0;
+    strcpy(cIP, "");
+    strcpy(cPort, "");
+
+    caddr = NULL;
+    clen = 0;
 
     //fd = 0;
     fdSuc = 0;
@@ -237,9 +251,16 @@ void checkInput(int isThereChar)
 {
     char input;
     int cont = 1;
-    int predkey = 0;
-    char params[100], predip[100], predport[100], buffer[200];
+    int auxkey = 0;
+    char params[100], auxip[100], auxport[100], buffer[200];
     char *str;
+    struct addrinfo hints, *res;
+    char auxIP[20], auxPort[20];
+    char auxstr[100];
+    int efindk;
+    int auxFDUDP;
+    int errcode;
+
     while (cont)
     {
         if(isThereChar)
@@ -272,12 +293,12 @@ void checkInput(int isThereChar)
 
         case 'p':
             fgets(params, 100, stdin);
-            sscanf(params, "%d %s %s", &predkey, predip, predport);
-            printf("predkey: %d\n", predkey);
-            printf("predIP: %s\n", predip);
-            printf("predport: %s\n", predport);
+            sscanf(params, "%d %s %s", &auxkey, auxip, auxport);
+            printf("predkey: %d\n", auxkey);
+            printf("predIP: %s\n", auxip);
+            printf("predport: %s\n", auxport);
             
-            pEntry(predkey, predip, predport);
+            pEntry(auxkey, auxip, auxport);
 
             inARing = 1;
             return;
@@ -312,12 +333,6 @@ void checkInput(int isThereChar)
             break;
         case 'q':
             fgets(params, 100, stdin);
-            int efindk;
-            int auxFDUDP;
-            char auxIP[20], auxPort[20];
-            struct addrinfo hints, *res;
-            int errcode;
-            char auxstr[100];
             sscanf(params, "%d %s %s", &efindk, auxIP, auxPort);
             printf("efindk: %d %s %s\n", efindk, auxIP, auxPort);
             sprintf(auxstr, "EFND %d", efindk);
@@ -339,6 +354,68 @@ void checkInput(int isThereChar)
                     exit(1);
             } 
             WriteU(buffer, auxstr, fdUDP, (res)->ai_addr, (res)->ai_addrlen);
+            return;
+            break;
+        case 'b':
+            fgets(params, 100, stdin);
+            sscanf(params, "%d %s %s", &auxkey, auxIP, auxPort);
+            printf("sending to: %d %s %s\n", auxkey, auxIP, auxPort);
+            sprintf(auxstr, "EFND %d", key);
+            printf("%s\n", auxstr);
+            //auxFDUDP = createuSocket();
+            ucsetHints(&hints);
+
+            if(!strcmp(auxIP, "NULL"))
+            {
+                printf("Im here in create server UDP NULL case\n");
+                if ((errcode = getaddrinfo(NULL, auxPort, &hints, &res)) != 0)
+                { /*error*/
+                    printf("Não consegui receber addrinfo.\n");
+                    exit(1);
+                }
+            }
+            else if ((errcode = getaddrinfo(auxIP, auxPort, &hints, &res)) != 0){ /*error*/
+                    printf("Não consegui receber addrinfo.\n");
+                    exit(1);
+            } 
+            WriteU(buffer, auxstr, fdUDP, (res)->ai_addr, (res)->ai_addrlen);
+            return;
+            break;
+        case 'c':
+            fgets(params, 100, stdin);
+            sscanf(params, "%d %s %s", &auxkey, auxip, auxport);
+            printf("chordkey: %d\n", auxkey);
+            printf("chordIP: %s\n", auxip);
+            printf("chordport: %s\n", auxport);
+            cKey = auxkey;
+            strcpy(cIP, auxip);
+            strcpy(cPort, auxPort);
+
+            ucsetHints(&hints);
+
+            if(!strcmp(auxip, "NULL"))
+            {
+                printf("Im here in create server UDP NULL case\n");
+                if ((errcode = getaddrinfo(NULL, auxport, &hints, &res)) != 0)
+                { /*error*/
+                    printf("Não consegui receber addrinfo.\n");
+                    exit(1);
+                }
+            }
+            else if ((errcode = getaddrinfo(auxip, auxport, &hints, &res)) != 0){ /*error*/
+                    printf("Não consegui receber addrinfo.\n");
+                    exit(1);
+            } 
+            caddr = res->ai_addr;
+            clen = res->ai_addrlen;
+            return;
+            break;
+        case 'e':
+            cKey = 0;
+            strcpy(cIP, "");
+            strcpy(cPort, "");
+            caddr = NULL;
+            clen = 0;
             return;
             break;
         default:
@@ -563,7 +640,7 @@ int main(int argc, char **argv)
             if(!strcmp(fst, "FND"))        
             {
                 sscanf(buffer, "%s %s %s %s %s %s", fst, scd, thd, frt, fft, sxt);
-                if(((atoi(scd) >= key) && (atoi(scd) <= sKey)) || (sKey < key) && ((atoi(scd) > key) || (atoi(scd) < sKey)))
+                if(((atoi(scd) >= key) && (atoi(scd) <= sKey)) || (sKey < key) && ((atoi(scd) > key) || (atoi(scd) < sKey)))    // É capaz de ficar mais simples com os controlos dos 32...
                 {
                     printf("It's mine!\n");
                     strcpy(fst, "RSP");
@@ -572,8 +649,18 @@ int main(int argc, char **argv)
                     Write(buffer, auxstr, fdSuc);
                 }
                 else{
-                    strcpy(auxstr, buffer);
-                    Write(buffer, auxstr, fdSuc);
+
+                    if((cKey == 0) || (((atoi(scd) >= key) && (atoi(scd) <= cKey)) || ((cKey < key) && ((atoi(scd) > key) || (atoi(scd) < cKey)))))
+                    {
+                        strcpy(auxstr, buffer);
+                        Write(buffer, auxstr, fdSuc);
+                    }
+                    else
+                    {
+                        strcpy(auxstr, buffer);
+                        WriteU(buffer, auxstr, fdUDP, caddr, clen);
+                    }
+                    
                 }
 
             }
@@ -675,7 +762,7 @@ int main(int argc, char **argv)
                     sprintf(auxstr, "%s %d %s %s", fst, key, IP, Port);
                     WriteU(buffer, auxstr, fdUDP, &addr, addrlen);
                 }
-                else{
+                else{       // FALTA MUDAR ISTO PARA FAZER A MESMA VEFIFICAÇÃO DE ATALHO QUE JA ESTÁ FEITA NOUTRO SITIO
                     int a;
                     a = findMinFree(addresses, 99);
                     a++;
@@ -685,6 +772,44 @@ int main(int argc, char **argv)
                     Write(buffer, auxstr, fdSuc);
                 }
 
+            }
+            if(!strcmp(fst, "EPRED"))      // É para tratar disto, que está um cocó!!  
+            {
+                // Verificar formatos!!!
+                //str = createSelf(key, IP, Port);
+                sscanf(buffer, "%s %s %s %s", fst, scd, thd, frt);
+                fdPred = createtSocket();
+                setHints(&hints); // Sem flags?...
+                if(strcmp(thd,"NULL") == 0){
+                    // fazer só o if seguinte aqui dentro com um NULL em vez de mudar a variavel? tipo como está agora aqui
+                    if ((errcode = getaddrinfo(NULL, frt, &hints, &res)) != 0) /*error*/
+                    exit(1);
+                }
+                else if ((errcode = getaddrinfo(thd, frt, &hints, &res)) != 0) /*error*/
+                    exit(1);
+
+                n = connect(fdPred, res->ai_addr, res->ai_addrlen);
+                if (n == -1) /*error*/
+                {
+                    printf("Couldn't connect\n");
+                    exit(1);
+                }
+
+                memset(&act, 0, sizeof act);
+
+                act.sa_handler = SIG_IGN;
+
+
+                if (sigaction(SIGPIPE, &act, NULL) == -1) /*error*/
+                    exit(1);
+
+                str = createSelf(key, IP, Port);
+                Write(buffer, str, fdPred);
+                pKey = atoi(scd);
+                strcpy(pIP, thd);
+                strcpy(pPort, frt);
+
+                if(fdPred > maxfd) maxfd = fdPred; // Não faz sentido
             }
 
             FD_CLR(fdUDP, &rfds);
