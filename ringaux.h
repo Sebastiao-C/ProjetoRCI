@@ -1,8 +1,8 @@
 #ifndef H_RINGAUX
 #define H_RINGAUX
 
-void setHints(struct addrinfo *hints);
-void fsetHints(struct addrinfo *hints);
+void tcsetHints(struct addrinfo *hints);
+void tsetHints(struct addrinfo *hints);
 void ucsetHints(struct addrinfo *hints);
 void usetHints(struct addrinfo *hints);
 void printUI();

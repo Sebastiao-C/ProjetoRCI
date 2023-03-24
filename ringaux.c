@@ -11,14 +11,14 @@
 
 #include "ringaux.h"
 
-void setHints(struct addrinfo *hints)
+void tsetHints(struct addrinfo *hints)
 {
     memset(hints, 0, sizeof(*hints));
     hints->ai_family = AF_INET;       // IPv4
     hints->ai_socktype = SOCK_STREAM; // TCP socket
 }
 
-void fsetHints(struct addrinfo *hints)
+void tcsetHints(struct addrinfo *hints)
 {
     memset(hints, 0, sizeof(*hints));
     hints->ai_family = AF_INET;       // IPv4
@@ -45,11 +45,6 @@ void usetHints(struct addrinfo *hints)
 void printUI()
 {
     printf("Insira a letra correspondente à ação que quer tomar.\n");
-    printf("Menu:\n");
-    printf("n: Criação de um anel contendo apenas o nó.\n");
-    printf("p: Entrada do nó no anel sabendo que o seu predecessor será o nó pred com endereço IP pred.IP e porto pred.port.\n");
-    printf("l: Saída do nó do anel atual.\n");    
-    printf("x: Fecho da aplicação.\n");
 }
 
 int createtSocket()
@@ -74,7 +69,6 @@ int createuSocket()
 
 char *createSelf(int key, char *iip, char *iport)
 {
-    // VOLTAR A PÔR ISTO BEM. O PROBLEMA ERA SÓ DAR STRCAT A UM NULL, QUE É O IIP...
     char *str, *straux;
     str = (char *) malloc(100);
     straux = (char *) malloc(10);
@@ -86,15 +80,12 @@ char *createSelf(int key, char *iip, char *iport)
     sprintf(str, "SELF ");
     sprintf(straux, "%d", key);
 
-    printf("%s", iip);
-    printf("%s", iport);
     strcat(str, straux); 
     strcat(str, " "); 
     strcat(str, iip); 
     strcat(str, " "); 
     strcat(str, iport); 
     strcat(str, "\n");  
-    printf("%s", str);
     free(straux);
     return str;
 }
@@ -107,10 +98,9 @@ int Read(char *buffer, int fd)
     nleft = 100;
     while(nleft>0){
         nread = read(fd,ptr,nleft);
-        printf("nread = %ld\n", nread);
         if(nread==-1)
         {
-            printf("couldn't read\n");
+            printf("Couldn't read\n");
             exit(1);
         }
         else if(nread==0){
@@ -118,106 +108,78 @@ int Read(char *buffer, int fd)
                 return 1;
             } 
             break;
-        }//closed by peer
+        }       // Para o caso em que a ligação é fechada "do outro lado"
         nleft-=nread;
 
         ptr+=nread;
-        if((*(ptr-1)) == '\n') break;
+        if((*(ptr-1)) == '\n'){
+            ptr[0] = '\0';
+            break;
+        } 
     }
+    
+
     return 0;
 }
 
 int ReadU(char *buffer, int fdUDP, struct sockaddr *addr, socklen_t *addrlen)
 {
     char *ptr;
-    ssize_t nleft, nread;
+    ssize_t  nread;
     ptr = buffer;
-    nleft = 100;
-    //struct sockaddr myaddr = *addr;
-    //socklen_t myaddrlen = *addrlen;
 
-    //addrlen = sizeof(addr);     // ??
+    nread = recvfrom(fdUDP, ptr, 100, 0, addr, addrlen);
+    ptr[nread] = '\0';
 
-    //while(nleft>0){
-        nread = recvfrom(fdUDP, ptr, 100, 0, addr, addrlen);
-        printf("nread = %ld\n", nread);
-        ptr[nread] = '\0';
-        printf("What was read: %s\n", ptr);
-
-    /*    if(nread==-1)
-        {
-            printf("couldn't read\n");
-            exit(1);
-        }
-        
-        else if(nread==0){
-            
-            if(nleft == 100){
-                return 1;
-            } 
-            
-            break;
-        }
-        nleft-=nread;
-
-        ptr+=nread;
-        if((*(ptr-1)) == '\n') break;
-    }*/
     return 0;
 }
 
 void Write(char *buffer, char *str, int fd1)
 {
     char *ptr;
-    ssize_t nbytes, nleft, nwritten, nread;
+    ssize_t nbytes, nleft, nwritten;
 
     ptr = strcpy(buffer, str);
-        printf("yup3\n");
 
     nbytes = strlen(ptr);
-    //printf("strlen is %d\n", nbytes);
-    ptr[nbytes] = '\0';    //  Em princípio não faz nada
+
+    ptr[nbytes] = '\0';
 
     nleft = nbytes;
-    while (nleft > 0)           // Este nao devia ter loop se o read nao tem
+    while (nleft > 0)
     {
         nwritten = write(fd1, ptr, nleft);
         if (nwritten <= 0) /*error*/
             exit(1);
         nleft -= nwritten;
-        //printf("nleft is %d\n", nleft);
 
         ptr += nwritten;
 
     }
 }
 
-int WriteU(char buffer[100], char str[100], int fdUDP, struct sockaddr *addrinfo, socklen_t addrlen)      // mudar estes headers para nao terem 2 pointers (é inutil?)
+int WriteU(char buffer[100], char str[100], int fdUDP, struct sockaddr *addrinfo, socklen_t addrlen) 
 {
     char *ptr;
-    ssize_t nbytes, nleft, nwritten, nread;
+    ssize_t nbytes, nleft, nwritten;
 
     ptr = strcpy(buffer, str);
-        printf("yup3\n");
 
     nbytes = strlen(ptr);
-    //printf("strlen is %d\n", nbytes);
-    //ptr[nbytes] = '\0';     // TIREI ISTO PARA VER SE OS UDPS PASSAM A FUNCIONAR
 
     nleft = nbytes;
     while (nleft > 0)
     {
-        printf("Here in WriteU's while\n");
         nwritten = sendto(fdUDP, ptr, nleft, 0, addrinfo, addrlen);
 
         if (nwritten <= 0) /*error*/
             exit(1);
         nleft -= nwritten;
-        //printf("nleft is %d\n", nleft);
 
         ptr += nwritten;
 
     }
+    return 0;
 }
 
 char *createPred(int pkey, char *pIP, char *pPort)
@@ -229,20 +191,17 @@ char *createPred(int pkey, char *pIP, char *pPort)
     sprintf(str, "PRED ");
     sprintf(straux, "%d", pkey);
 
-    // TRATAR DISTO, PÔR IGUAL AO SELF
 
     sprintf(str, "PRED ");
     sprintf(straux, "%d", pkey);
 
-    printf("%s", pIP);
-    printf("%s", pPort);
+
     strcat(str, straux); 
     strcat(str, " "); 
     strcat(str, pIP); 
     strcat(str, " "); 
     strcat(str, pPort); 
     strcat(str, "\n");  
-    printf("%s", str);
     free(straux);
     return str;
 }
